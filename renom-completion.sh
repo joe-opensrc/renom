@@ -7,7 +7,7 @@ _renom(){
 
   case "${prev}" in
     "renom") COMPREPLY=("-R");;
-    "-R") COMPREPLY=( 
+    "-R") COMPREPLY=(
             $( compgen -W "$( find . ${regmodsDir} -mindepth 1 -type f -name '*.rxs' -printf '%p\n' )" -- ${cur} ) );;
     *) _comp_compgen_filedir; return;;
   esac
