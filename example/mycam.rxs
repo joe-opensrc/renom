@@ -1,0 +1,3 @@
+s/^IMG_/photo-/
+s/0//
+s/\.JPG/-coolpic.jpg/

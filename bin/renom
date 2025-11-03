@@ -1,0 +1,156 @@
+#!/bin/bash 
+
+declare -a regexes=()
+declare -a regexFlags=()
+dryrun=
+quiet=1
+orig=1
+show=1
+verb=1
+regfile=""
+
+mvcmd=( mv -i -v )
+
+applyRegexes() {
+
+  local verb=1
+  local orig=1
+  local show=1
+
+  local OPTIND= OPTARG="" OPTERR=0
+  while getopts 'vos' flag
+  do
+    case "${flag}" in
+      v)  verb=0;;
+      o)  orig=0;;
+      s)  show=0;;
+    esac
+  done
+  shift $(( ${OPTIND} - 1 ))
+
+  # input / output strings
+  local istr="${2}"
+  local ostr=""
+  # "next" + holding string
+  local nstr=""
+  local hstr=""
+
+  local -n rxs="${1}"
+
+  nstr="${istr}"
+  for regex in "${rxs[@]}"
+  do
+    # allow comments 
+    rcomm="^\s*#\s*"
+    [[ "${regex}" =~ /${rcomm}/ ]] && continue
+    hstr="${nstr}"
+    nstr=$( echo "${nstr}" | perl -pe "${regex}" )
+
+    if [[ $verb -eq 0 ]]
+    then 
+
+      if [[ $show -eq 0 ]]
+      then
+        ostr="${regex}¦"
+      fi
+
+      if [[ $orig -eq 0 ]]
+      then
+        ostr="${ostr}${hstr}¦"
+      fi
+   
+      ostr="${ostr}${nstr}"
+      echo "${ostr}" >&2
+      # printf '%q\n' "${ostr}${nstr}"
+      ostr=""
+    fi
+    
+  done
+
+  ostr="${nstr}"
+  if [[ $orig -eq 0 ]]
+  then
+    echo "${istr}¦${ostr}" >&2
+  fi
+  echo "${ostr}"
+}
+
+# for now regexes are loaded from a single file
+loadRegexes(){
+  set -e
+  local IFS=$'\n'
+  local -n rxs="${1}"
+  local regmod="${2}"
+  local rxspath="${regmod}"
+  if [[ -f "${rxspath}" ]]
+  then
+    regexes=( $( cat "${rxspath}" ) )
+  else
+    echo -ne "\n  error: couldn't open rxs file: ${rxspath}\n\n" >&2
+    exit 1
+  fi
+  set +e
+}
+
+OPTIND=1 OPTARG="" OPTERR=0
+while getopts 'FR:noqsv' flag
+do
+  case "${flag}" in
+    F)  mvcmd=( ft mv );;
+    R) regfile="${OPTARG}";;
+    n)  dryrun="echo";;
+    o)  regexFlags+=( "-o" );;
+    q)  regexFlags+=( "-q" ); quiet=0;;
+    s)  regexFlags+=( "-s" );;
+    v)  regexFlags+=( "-v" );;
+  esac
+done
+shift $(( ${OPTIND} - 1 ))
+
+
+if [[ -z "${regfile}" ]]
+then
+  echo -ne "\nYou must supply a file of regexes...\n\n  renom [-Fnoqsv] -R <path> file...\n\n" >&2
+  exit 1
+fi
+
+if [[ ${#} -eq 0 ]]
+then
+  echo -ne "\nYou must supply a list of files to rename...\n\n" >&2
+  exit 2
+fi
+
+# quiet-verbosity; if quiet, but require output, or visa-versa 
+qverb(){
+  [[ "${1}" == "-i" ]] && quiet=$(( 0 - ( ${quiet} - 1 ) ))
+  if [[ ${quiet} -ne 0 ]]
+  then
+      cat /dev/stdin
+  fi
+}
+
+mvcmd=( ${dryrun} ${mvcmd[@]} )
+
+loadRegexes regexes "${regfile}"
+
+IFS=$'\n' 
+ostr=""
+for istr in "${@}"
+do
+  ostr="${istr}"
+  if [[ -e "${istr}" ]]
+  then 
+    nstr="$( applyRegexes ${regexFlags[*]} regexes ${ostr} )"
+    if [[ "${ostr}" == "${nstr}" ]]
+    then 
+      echo "Nothing to do for: ${ostr}" | qverb
+    else
+      ${mvcmd[@]} "${ostr}" "${nstr}" 2>&1 | qverb
+      echo "${nstr}" | qverb -i
+    fi
+  else
+    echo "Couldn't find: \"${istr}\"" | qverb
+    continue
+  fi
+done
+IFS=$' \t\n'
