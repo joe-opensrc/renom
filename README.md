@@ -5,7 +5,7 @@
 ```bash
   cd /some/path
   git clone https://github.com/joe-opensrc/renom
-  export PATH="/some/path/to/renom/bin:${PATH}"
+  export PATH="/some/path/renom/bin:${PATH}"
 ```
 
 #### Usage
