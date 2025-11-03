@@ -33,6 +33,13 @@ mycam.rxs
 ```
 
 ```bash
+> cat mycam.rxs
+s/^IMG_/photo-/
+s/0//
+s/\.JPG/-coolpic.jpg/
+```
+
+```bash
 > renom -R mycam.rxs IMG_000*
 renamed 'IMG_0001.JPG' -> 'photo-001-coolpic.jpg'
 renamed 'IMG_0002.JPG' -> 'photo-002-coolpic.jpg'
